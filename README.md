@@ -8,7 +8,7 @@
 
 **An alternative client for the game "Tanki Online".**
 
-> [🌐 **Discord**](https://discord.gg/hJn2QeJsT3) • [🌐 **Telegram**](https://t.me/tanki_projects) • [🌐 **Forum Thread**](https://ru.tankiforum.com/topic/320910/) • [❤️ **Support me on Boosty**](https://boosty.to/tanki-projects)
+> [🌐 **Discord**](https://discord.gg/hJn2QeJsT3) • [🌐 **Telegram**](https://t.me/tanki_projects) • [❤️ **Boosty**](https://boosty.to/tanki-projects)
 
 ## 📥 Downloads
 
@@ -82,7 +82,7 @@ C:\Users\<username>\AppData\Roaming\Tanki Online with Tweaks\extensions
 
 **Альтернативный клиент для игры «Танки Онлайн».**
 
-> [🌐 **Discord**](https://discord.gg/hJn2QeJsT3) • [🌐 **Telegram**](https://t.me/tanki_projects) • [🌐 **Тема на форуме**](https://ru.tankiforum.com/topic/320910/) • [❤️ **Поддержите меня на Boosty**](https://boosty.to/tanki-projects)
+> [🌐 **Discord**](https://discord.gg/hJn2QeJsT3) • [🌐 **Telegram**](https://t.me/tanki_projects) • [❤️ **Boosty**](https://boosty.to/tanki-projects)
 
 ## 📥 Загрузки
 
