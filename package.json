@@ -1,14 +1,16 @@
 {
-    "name": "tanki-tweaks-client",
-    "version": "1.1.2",
+    "name": "tanki-online-with-ki",
+    "version": "1.0.1",
     "author": {
-        "name": "Tanki Projects",
-        "url": "https://tanki.space"
+        "name": "AlanKaspersky"
     },
-    "productName": "Tanki Online with Tweaks",
-    "description": "Alternative client for Tanki Online",
+    "productName": "Tanki Online with KI",
+    "description": "An alternative client for Tanki Online with advanced features",
     "private": true,
     "main": "./build/main.js",
+    "overrides": {
+        "yauzl": "^3.3.1"
+    },
     "dependencies": {
         "electron-log": "5.2.4",
         "electron-squirrel-startup": "1.0.1",
@@ -23,6 +25,7 @@
         "@electron-forge/maker-deb": "7.6.0",
         "@electron-forge/maker-dmg": "7.6.0",
         "@electron-forge/maker-squirrel": "7.6.0",
+        "@electron-forge/maker-zip": "^7.11.2",
         "@electron-forge/plugin-fuses": "7.6.0",
         "@electron-forge/publisher-github": "7.6.0",
         "@electron-forge/shared-types": "7.6.0",

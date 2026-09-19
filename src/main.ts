@@ -12,26 +12,19 @@ import { Downloader as FileDownloader } from "nodejs-file-downloader";
 import extractZip from "extract-zip";
 import { Entry as ZipEntry } from "yauzl";
 
-const UPDATE_CONFIG_TEMPLATE_URL =
-    "https://r.tanki.space/tanki-tweaks-client/update-config-template.json";
 const TANKI_ONLINE_URL = "https://tankionline.com/play/";
 
 const EXTERNAL_BROWSER_URLS = [
-    "https://tanki.space",
-    "https://tanki.space/tweaks",
-    "https://discord.gg/hJn2QeJsT3",
-    "https://t.me/tanki_projects",
-    "https://ru.tankiforum.com/topic/320910/",
-    "https://boosty.to/tanki-projects"
+    "https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online"
 ];
-const TANKI_TWEAKS_EXTENSION_KEY =
-    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjc6ZrxUpSuXqCI+J3a3F" +
-    "BHExxjt4tp4cmVzBu226D8JQIak/XOZaHu4j6DnrC9F7yFGC5KZDx9rXeSpJqhuh" +
-    "a7e8buyFSTDK0BBmBfczOjBn3cIikUrEuKsbEnWUDGgbEGu8kUkcNaIVGYI/LQsK" +
-    "i8NbGNojacVQ5oQby2Ckg/f06GKM4G3eS4ELzRzaOBwBdGLC2LQvCgXAiGPw3J5u" +
-    "yo0AbulhbS1rHxnzvhf1iDVR1+Lii0wjHvSYGCFh88BLqv0QhkmtN57V6iYxwifM" +
-    "LtmuoB9HXNHTfpxqbgoYRQkEarNEAZ1ErgwXNWZIqi541r9OOEbVTshS/GDeFD8Q" +
-    "wwIDAQAB";
+const KASPERSKY_EXTENSION_KEY =
+    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApkHGubYDs+KYsU4zd2XJ" +
+    "TpQ2ve+NeyVSXhemfedNhgxF/ObN1ax1+nCTBK0Nhp9hdwVOgHY8MP7Kgpniq8hH" +
+    "Xte6u623y/YO8+SLfWdNz/rX/H2ZDcid5YWfOsAVMJ3v0wDoHpJi64usDi9JpZdR" +
+    "hjm1bJaTBCZQvbKIRu3Qn+JPkVjFASyzo86tKLodus0rCIXSKa6kulY+CBR+7mMM" +
+    "hxdGTIPdKXwkZXoqUtRkakPIwvhXfzMWtpdoZols/jlWz3jPKaDINNene86fYQ6h" +
+    "LUIOnajPb/ButR6j8P/B76GZ5c9LdnN50d86hKhyiu25u4wDedfdq4XMxAq2VJRU" +
+    "qwIDAQAB";
 
 const options = parseArgs(process.argv.slice(1));
 
@@ -57,19 +50,16 @@ async function main() {
     }
 
     if (OS.platform() === "win32") {
-        try {
-            let updateConfigTemplate =
-                await (await fetch(UPDATE_CONFIG_TEMPLATE_URL,
-                    { signal: AbortSignal.timeout(5000) })).text();
-            updateConfigTemplate = updateConfigTemplate
-                .replaceAll("[platform]", OS.platform())
-                .replaceAll("[arch]", OS.arch())
-                .replaceAll("[version]", application.getVersion());
-            const updateConfig = JSON.parse(updateConfigTemplate);
-            updateElectronApp({ logger: log, ...updateConfig });
-        } catch (error) {
-            log.error(error);
-        }
+        updateElectronApp({
+            logger: log,
+            updateSource: {
+                type: UpdateSourceType.ElectronPublicUpdateService,
+                host: "https://update.electronjs.org",
+                repo: "AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online"
+            },
+            updateInterval: "1 hour",
+            notifyUser: false
+        });
     }
 
     application.commandLine.appendSwitch("disable-renderer-backgrounding");
@@ -107,7 +97,7 @@ function createMainWindow() {
     const window = new BrowserWindow({
         width: 1280,
         height: 800,
-        title: "Tanki Online",
+        title: "Tanki Online with KI",
         titleBarStyle: OS.platform() === "darwin" ?
             "customButtonsOnHover" : "default",
         show: false
@@ -142,7 +132,8 @@ async function updateAndLoadExtensions(userDataPath: string) {
     const directoryPaths =
         FS.readdirSync(extensionsPath, { withFileTypes: true })
             .filter((dirent) => dirent.isDirectory())
-            .map((dirent) => Path.join(dirent.path, dirent.name));
+            .map((dirent) => Path.join(extensionsPath, dirent.name));
+            
     for (const directoryPath of directoryPaths) {
         try {
             const manifestPath = Path.join(directoryPath, "manifest.json");
@@ -156,14 +147,14 @@ async function updateAndLoadExtensions(userDataPath: string) {
     }
 
     if (!extensions.some((extension) =>
-        extension.manifest.key === TANKI_TWEAKS_EXTENSION_KEY)) {
-        const tweaksExtension = {
-            path: Path.join(extensionsPath, "tanki-tweaks"),
+        extension.manifest.key === KASPERSKY_EXTENSION_KEY)) {
+        const kiExtension = {
+            path: Path.join(extensionsPath, "kaspersky-inventions"),
             manifest: {
-                key: TANKI_TWEAKS_EXTENSION_KEY
+                key: KASPERSKY_EXTENSION_KEY
             }
         };
-        extensions.push(tweaksExtension);
+        extensions.push(kiExtension);
     }
 
     for (const extension of extensions) {
@@ -289,7 +280,7 @@ function unwrapCRX(buffer: Buffer): Buffer {
     }
 
     if (buffer.readUInt32BE(0) === 0x50_4B_03_04)
-        return Buffer.copyBytesFrom(buffer);
+        return Buffer.from(buffer);
     if (buffer.readUInt32BE(0) !== 0x43_72_32_34)
         throw new Error("invalid CRX header");
     const version = readCRXVersion(buffer);
@@ -298,7 +289,7 @@ function unwrapCRX(buffer: Buffer): Buffer {
     const offset = version === "crx-2" ?
         16 + buffer.readUInt32LE(8) + buffer.readUInt32LE(12) :
         12 + buffer.readUInt32LE(8);
-    return Buffer.copyBytesFrom(buffer, offset);
+    return Buffer.from(buffer.subarray(offset));
 }
 
 main();

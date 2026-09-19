@@ -1,8 +1,6 @@
 import FS from "fs";
 import Path from "path";
-import { ForgeConfig, ForgeMakeResult } from "@electron-forge/shared-types";
-import { FusesPlugin } from "@electron-forge/plugin-fuses";
-import { FuseV1Options, FuseVersion } from "@electron/fuses";
+import type { ForgeConfig, ForgeMakeResult } from "@electron-forge/shared-types";
 
 const packageJSON = JSON.parse(FS.readFileSync("./package.json",
     { encoding: "utf-8" }));
@@ -30,17 +28,6 @@ function includeResource(
 }
 
 export default {
-    plugins: [
-        new FusesPlugin({
-            version: FuseVersion.V1,
-            [FuseV1Options.RunAsNode]: false,
-            [FuseV1Options.EnableCookieEncryption]: true,
-            [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-            [FuseV1Options.EnableNodeCliInspectArguments]: false,
-            [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-            [FuseV1Options.OnlyLoadAppFromAsar]: true
-        })
-    ],
     packagerConfig: {
         executableName: packageJSON.name,
         asar: true,
@@ -52,11 +39,11 @@ export default {
             name: "@electron-forge/maker-deb",
             config: (arch: string) => ({
                 options: {
-                    maintainer: "Tanki Projects <tettovs@gmail.com>",
+                    maintainer: "AlanKaspersky",
                     icon: "./resources/icons/icon.png",
                     categories: ["Game"],
                     section: "games",
-                    homepage: "https://tanki.space/tweaks",
+                    homepage: "https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online",
                 }
             })
         },
@@ -71,15 +58,15 @@ export default {
         },
         {
             name: "@electron-forge/maker-squirrel",
-            config: (arch: string) => ({
-                setupExe: `to-${packageJSON.version}-win32-${arch}.exe`,
-                iconUrl: `https://github.com/tettov/tanki-tweaks-client/releases/download/${packageJSON.version}/squirrel-icon-${packageJSON.version}.ico`,
+            config: {
+                setupExe: `to-${packageJSON.version}-win32.exe`,
+                iconUrl: `https://github.com/AlanKaspersky/tanki-online-with-ki/releases/download/${packageJSON.version}/squirrel-icon-${packageJSON.version}.ico`,
                 setupIcon: "./resources/icons/icon.ico"
-            })
+            }
         }
     ],
     hooks: {
-        postMake: async (config, makeResults) => {
+        postMake: async (config: any, makeResults: any[]) => {
             includeResource(makeResults, "win32",
                 "./resources/icons/icon.ico",
                 `squirrel-icon-${packageJSON.version}.ico`);
@@ -91,8 +78,8 @@ export default {
             name: "@electron-forge/publisher-github",
             config: {
                 repository: {
-                    owner: "tettov",
-                    name: "tanki-tweaks-client"
+                    owner: "AlanKaspersky",
+                    name: "tanki-online-with-ki"
                 },
                 tagPrefix: "",
                 draft: false
