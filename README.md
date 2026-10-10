@@ -305,7 +305,7 @@ Debian and Ubuntu are supported on x64 and ARM64 architectures. The application 
 
 Windows:
 
-Download the to-1.0.0-win32.exe installer from the latest release and run it. Squirrel.Windows will install the application and create a Start Menu shortcut. The application is installed to the user local app data directory and does not require administrator privileges.
+Download the to-*.*.*-win32.exe installer from the latest release and run it. Squirrel.Windows will install the application and create a Start Menu shortcut. The application is installed to the user local app data directory and does not require administrator privileges.
 
 macOS:
 
