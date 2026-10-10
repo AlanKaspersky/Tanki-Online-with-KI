@@ -57,7 +57,7 @@ async function main() {
             updateSource: {
                 type: UpdateSourceType.ElectronPublicUpdateService,
                 host: "https://update.electronjs.org",
-                repo: "AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online"
+                repo: "AlanKaspersky/tanki-online-with-ki"
             },
             updateInterval: "1 hour",
             notifyUser: false
