@@ -14,6 +14,8 @@ import { Entry as ZipEntry } from "yauzl";
 import { DiscordPresence, validPresence, copyPresence } from "./discordPresence";
 import { startClientUpdates } from "./clientUpdates";
 import { runStartupCheck } from "./startupCheck";
+import { installGameAttention } from "./gameAttention";
+import { gameWebPreferences } from "./gameWindow";
 
 const TANKI_ONLINE_URL = "https://tankionline.com/play/";
 
@@ -91,7 +93,7 @@ function createMainWindow() {
         title: "Tanki Online with KI",
         titleBarStyle: OS.platform() === "darwin" ?
             "customButtonsOnHover" : "default",
-        webPreferences: { preload: Path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false },
+        webPreferences: gameWebPreferences(Path.join(__dirname, "preload.js")),
         show: false
     });
     if (OS.platform() === "win32")
@@ -101,6 +103,7 @@ function createMainWindow() {
         window.setIcon(Path.join(application.getAppPath(),
             "resources/icons/icon.png"));
     window.setMenuBarVisibility(false);
+    installGameAttention(window, ipcMain, message => log.info(message));
     // The extension supplies game state; this process only transports it to Discord.
     let discordApplicationId = String(options["discord-application-id"] || process.env.KI_DISCORD_APPLICATION_ID || "");
     if (!discordApplicationId) {

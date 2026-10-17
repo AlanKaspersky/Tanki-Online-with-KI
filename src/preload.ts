@@ -5,8 +5,17 @@ const isGame = () => window.location.protocol === 'https:' &&
     /(^|\.)tankionline\.com$/.test(window.location.hostname) &&
     (window.location.pathname === '/play' || window.location.pathname.startsWith('/play/'));
 window.addEventListener('message', event => {
-    if (!isGame() || event.source !== window || event.origin !== window.location.origin ||
-        event.data?.type !== 'kasp:discord-presence' || event.data.version !== 1) return;
+    if (!isGame() || event.source !== window || event.origin !== window.location.origin || event.data?.version !== 1) return;
+    if (event.data.type === 'ki:game-attention') {
+        const state: unknown = event.data.state;
+        if (!state || typeof state !== 'object' || Array.isArray(state)) return;
+        const fields = state as Record<string, unknown>;
+        if (!['searching', 'loading', 'battle', 'results', 'disconnected'].every(key => typeof fields[key] === 'boolean')) return;
+        ipcRenderer.send('ki:game-attention', { searching: fields.searching, loading: fields.loading,
+            battle: fields.battle, results: fields.results, disconnected: fields.disconnected });
+        return;
+    }
+    if (event.data.type !== 'kasp:discord-presence') return;
     const value = event.data.presence;
     if (value !== null && (!value || typeof value.details !== 'string' || typeof value.state !== 'string' ||
         value.details.length > 128 || value.state.length > 128)) return;

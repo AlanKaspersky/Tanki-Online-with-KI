@@ -56,7 +56,7 @@ export default {
         osxSign: process.platform === "darwin" ? macSigningOptions : undefined,
         icon: "./resources/icons/icon",
         appCategoryType: "public.app-category.action-games",
-        ignore: [/^\/tests(?:\/|$)/, /^\/scripts(?:\/|$)/]
+        ignore: [/^\/out(?:\/|$)/, /^\/tests(?:\/|$)/, /^\/scripts(?:\/|$)/]
     },
     makers: [
         { name: "@electron-forge/maker-zip", platforms: ["darwin"], config: {} },
@@ -82,7 +82,7 @@ export default {
             })
         },
         {
-            name: "@electron-forge/maker-squirrel",
+            name: "./scripts/maker-squirrel.cjs",
             config: {
                 setupExe: `to-${packageJSON.version}-win32.exe`,
                 iconUrl: `https://github.com/AlanKaspersky/tanki-online-with-ki/releases/download/${packageJSON.version}/squirrel-icon-${packageJSON.version}.ico`,

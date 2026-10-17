@@ -1,6 +1,6 @@
 # Tanki Online with KI Client
 
-Client version: **1.0.5**. Runtime: **Electron 44.8.0** (stable), Chromium 152. macOS minimum: **13 Ventura**.
+Client version: **1.0.6**. Runtime: **Electron 44.8.0** (stable), Chromium 152. macOS minimum: **13 Ventura**.
 
 ## Complete Documentation
 
@@ -44,6 +44,22 @@ The client is designed around a modular main process architecture. Each subsyste
 - Command line argument support for launching with a custom URL
 - External link interception for approved community resources
 - Structured error logging through electron-log
+- Background game rendering and timers remain active when minimized (`backgroundThrottling: false`)
+- Native Windows taskbar attention when a minimized or unfocused client enters a battle after matchmaking, search unexpectedly ends, a connection/kick dialog appears, or the game page fails/crashes
+
+### Background-window game alerts (Windows)
+
+The client calls Electron's native `BrowserWindow.flashFrame(true)` while its window is minimized or lacks focus, including when another application covers it. It never raises or focuses the game window. Focusing the client clears the signal; restoring it behind another window does not. Other platforms are unchanged.
+
+The game window explicitly uses `backgroundThrottling: false` through `src/gameWindow.ts`, shared by the main window and offline startup probe. This keeps animations, timers and loading transitions active when minimized, independently of process priority flags. It also affects page visibility; attention logic therefore checks the native window's minimized and focused states. Background game execution can continue to use CPU/GPU rather than saving that work when minimized.
+
+`src/gameAttention.ts` installs an independent DOM observer on the trusted HTTPS Tanki game page after `dom-ready`. It does not depend on the KI extension or Discord. The isolated preload forwards only five validated boolean fields over `ki:game-attention`; the main process checks the sender, main frame and game URL again. Game selectors live in `src/gameDOM.ts`. No Node API is exposed to the page.
+
+The observer reports visible queue, loader, battle HUD and results markers and common RU/EN connection-loss/kick messages inside dialogs. Mutations are coalesced using a 100 ms timer, including while minimized; unchanged snapshots are not sent. There is no animation-frame loop or periodic polling. A queue-to-loader/HUD transition requests attention once. A 1.5-second grace period allows the queue to unmount before the loader appears; if a background search ends without either screen, attention is requested for the stopped search. Cancelling search while the client has focus does not trigger attention. Normal initial loading, garage loading and battle results alone do not trigger it.
+
+Top-level non-aborted game-page load failures and unexpected renderer termination also request attention. Repeated events do not repeatedly call flashFrame until the player focuses the client. Navigation clears pending search state; window closure removes IPC/window/webContents listeners and timers. Native calls and game rendering are unchanged.
+
+DOM detection is deliberately limited to recognized screen markers and common error dialogs. New game markup or unrecognized/localized error text may require updating this detector. It does not infer a network disconnect merely from a delayed heartbeat or a hidden window. Windows controls the exact flash pattern and duration. Automated tests verify calls and transitions; actual matchmaking and the taskbar appearance require a live minimized-client check.
 
 ## Module Documentation
 
@@ -428,7 +444,7 @@ npm run build
 npm run make
 ```
 
-On Windows, use a checkout path containing Latin characters: the bundled Squirrel resource editor cannot process an output path containing Cyrillic characters. This limitation affects creating the installer, not launching the installed client.
+Windows builds now support checkout/output paths containing Cyrillic or other non-ASCII characters. The configured `scripts/maker-squirrel.cjs` delegates to the existing Squirrel maker using a private ASCII staging directory for the app, installer output and setup icon, then returns the installer/update artifacts to the normal `out/make/squirrel.windows/<arch>` folder. This applies to ordinary `npm run make` and `npm run publish`; no separate manual helper or source-folder move is required. ASCII-only builds use the original maker directly. Successful staging is cleaned; failed staging is retained with its path printed for diagnosis. If the Windows temporary directory itself contains non-ASCII characters, set `KI_SQUIRREL_TEMP_DIR` to an absolute writable ASCII directory before building. Dependencies, signing and publisher settings are unchanged.
 
 The output is placed in the out/make directory. The structure of this directory depends on the current platform. On Windows, the Squirrel installer and the NUPKG package are placed in out/make/squirrel.windows/x64. On macOS, the DMG file is placed in out/make. On Linux, the DEB package is placed in out/make/deb.
 
@@ -457,6 +473,10 @@ If the application fails to start and the process appears to exit immediately, t
 Update check fails with AssertionError:
 
 If the log contains an error message about the host not being a valid HTTPS URL, the update configuration is missing the host field. The Electron public update service requires both host and repo fields to be present in the updateSource object.
+
+Squirrel fails with `Fatal error: Unable to load file`:
+
+The legacy resource editor cannot open Unicode paths. Use the repository's configured maker through `npm run make -- --platform=win32 --arch=x64`; explicitly overriding the target with `@electron-forge/maker-squirrel` bypasses the automatic staging. Inspect the printed staging path and native error if it still fails. `DEP0174` promisify messages are warnings, not the resource-editor failure. `Debugger attached` / `Waiting for the debugger to disconnect` indicates an active Node debugger; disable terminal auto-attach or run from a terminal without a debugger if that prevents the process from exiting. Do not change antivirus/security settings just for these warnings.
 
 Build hangs on Finalizing package:
 
