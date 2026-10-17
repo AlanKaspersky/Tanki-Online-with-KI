@@ -22,7 +22,9 @@ module.exports = class UnicodeSafeSquirrel extends MakerSquirrel {
         try {
             console.info('[KI build] Staging Squirrel installer in ' + work);
             const app = path.join(work, 'app'), makeDir = path.join(work, 'make');
-            fs.cpSync(options.dir, app, { recursive: true });
+            // Keep Node 22 on its JS copy implementation: its native fast path
+            // can abort the entire process when copying Unicode Windows paths.
+            fs.cpSync(options.dir, app, { recursive: true, filter: () => true });
             this.config = { ...saved };
             if (saved.setupIcon) {
                 const icon = path.join(work, 'setup.ico');
