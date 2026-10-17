@@ -1,5 +1,7 @@
 # Tanki Online with KI Client
 
+Client version: **1.0.4**. Runtime: **Electron 44.8.0** (stable), Chromium 152. macOS minimum: **13 Ventura**.
+
 ## Complete Documentation
 
 ## Table of Contents
@@ -26,14 +28,14 @@
 
 Tanki Online with KI is a standalone desktop client for the game Tanki Online, built on the Electron framework. The application bundles an up-to-date Chromium engine and provides native support for loading, updating, and managing browser extensions that enhance the game interface.
 
-The client operates independently of any web browser, offering improved performance, consistent behavior across platforms, and the ability to distribute custom extensions alongside the application. It features an automatic update mechanism based on Squirrel.Windows on Windows, and manual distribution of DMG packages on macOS and Linux.
+The client operates independently of any web browser, offering improved performance, consistent behavior across platforms, and the ability to distribute custom extensions alongside the application. It features an automatic update mechanism based on Squirrel.Windows on Windows, and a separate unsigned-app updater on macOS; Linux updates are offered through the release page.
 
 The client is designed around a modular main process architecture. Each subsystem, whether it is GPU configuration, extension management, or update handling, is implemented as a self-contained unit that operates independently and reports errors through a unified logging interface.
 
 ## Key Features
 
 - Native desktop client for Tanki Online with no browser dependency
-- Automatic application updates through GitHub Releases and the Electron public update service
+- Application update notifications, native Windows updates and checksum-verified Mac ZIP updates from GitHub Releases
 - Automatic extension updates through the Chrome Web Store CRX distribution service
 - Support for loading unpacked custom extensions from the user data directory
 - GPU acceleration enabled by default on supported hardware
@@ -58,12 +60,12 @@ Initialization sequence:
 | 1 | Console redirection | Routes console output through electron-log for unified logging |
 | 2 | Squirrel startup check | Detects Squirrel install and uninstall events and terminates early if required |
 | 3 | GPU respawn check | Relaunches the application with the correct GPU environment on Windows |
-| 4 | Auto-update initialization | Starts the update check loop on Windows |
-| 5 | Chromium switch configuration | Applies performance-related command line switches |
-| 6 | Application ready wait | Awaits the Electron ready event |
-| 7 | Connection verification | Confirms that the game server is reachable |
-| 8 | Extension loading | Updates and loads all extensions into the default session |
-| 9 | Main window creation | Opens the primary browser window and loads the game |
+| 4 | Chromium switch configuration | Applies performance-related command line switches |
+| 5 | Application ready wait | Awaits the Electron ready event |
+| 6 | Connection verification | Confirms that the game server is reachable |
+| 7 | Extension loading | Updates and loads all extensions into the default session |
+| 8 | Main window creation | Opens the primary browser window and loads the game |
+| 9 | Auto-update initialization | Starts platform-specific updates after the main window is ready |
 
 Command line arguments are parsed at startup using the minimist library. The primary supported argument is url, which allows the caller to override the default game URL. This is used both for testing and for launching into alternative game environments.
 
@@ -104,30 +106,24 @@ Technical Implementation:
 
 ### Auto-Update Module
 
-Purpose: Checks for and downloads new versions of the application from GitHub Releases.
+Application updates come from the public [client releases](https://github.com/AlanKaspersky/tanki-online-with-ki/releases), independently of Chrome Web Store extension updates. Development builds do not check/install application updates. Dialogs use Russian or English according to the OS locale. Restart is always an explicit choice, with Later as the default/cancel action.
 
-The Auto-Update module uses the update-electron-app library to periodically check the GitHub repository for new releases. The update source is configured through the Electron public update service, which reads the RELEASES file and the NUPKG package from the configured repository.
+**Windows installed with Squirrel:** the existing Electron update service checks at startup and hourly, downloads the update and offers Update and restart / Later. A downloaded-update notice waits while the main window is hidden. Releases must contain `RELEASES`, `*-full.nupkg` and the installer EXE. If the native updater reports an error, a GitHub release-page offer provides a manual fallback. Portable Windows and Linux builds receive a release-page notification rather than an unsupported automatic installation.
 
-Update configuration:
+**macOS without Developer ID:** a dedicated updater checks GitHub 15 seconds after the main window is ready, then hourly. It ignores drafts, prereleases, same/older versions and incompatible asset names. For Intel/Apple Silicon, the release must contain:
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| updateSource.type | ElectronPublicUpdateService | Uses the public Electron update service |
-| updateSource.host | https://update.electronjs.org | The update service endpoint |
-| updateSource.repo | AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online | The GitHub repository containing releases |
-| updateInterval | 1 hour | Frequency of update checks |
-| notifyUser | false | Silently installs updates without dialogs |
+- `to-<version>-darwin-x64.zip` and `to-<version>-darwin-x64.zip.sha256`;
+- `to-<version>-darwin-arm64.zip` and `to-<version>-darwin-arm64.zip.sha256`.
 
-The update process works as follows. On application start, and then once per hour, the library sends a request to the update service with the current version, platform, and architecture. The service responds with either an update-available or update-not-available status. When an update is available, the library downloads the NUPKG package and instructs Squirrel.Windows to apply it on the next application start.
+Forge now produces these alongside the existing DMGs, and publishes the architecture-specific checksum files. Publish the complete release before announcing it. DMGs remain the initial/manual installation format; the ZIP/checksum pair is required for automatic Mac updates.
 
-For the update mechanism to function correctly, the target GitHub Release must contain two files generated by electron-forge during the make step: the RELEASES manifest and the full NUPKG package. The release tag must follow the semantic versioning format, without a leading v character, for example 1.0.2. The version in the release tag must be greater than the installed version.
+After Download update, the client downloads in the background and checks size, SHA-256, archive paths/links, bundle identifier, executable name, version and CPU architecture. Preparation never overwrites the running app. It then asks separately whether to restart. Choosing Later retains the prepared update in the application's user-data update state for the next launch.
 
-Technical Implementation:
+After explicit restart confirmation, a separate POSIX helper waits up to 120 seconds for the current process to exit. It retains the previous bundle, moves the prepared app into place and calls macOS Launch Services. Rename/open-command failure restores the old app. A later crash after a successful launch command is not automatically detected; the previous app remains available for manual recovery. Backups are kept under a hidden `.tanki-ki-update-*/previous.app` directory beside the installed app and can be removed manually after successful verification.
 
-- The module is only initialized on Windows
-- Errors during update initialization are caught and logged to prevent application crash
-- The library automatically tracks whether an update is available and downloads it in the background
-- Installation of the downloaded package occurs on the next application start through Squirrel.Windows
+The app must be installed outside a DMG/App Translocation and its installation directory must be writable by the current user. Otherwise preparation stops and offers manual installation from GitHub. The updater does not request administrator rights or remove macOS quarantine/security settings. It does not provide Developer ID signing/notarization. Clients older than 1.0.4 need one manual Mac upgrade before this mechanism is available.
+
+See [TESTING.md](TESTING.md) for automated coverage and the remaining real-Mac verification boundary. The official native Electron autoUpdater requires signed Mac apps; the unsigned Mac path described here is a separate implementation.
 
 ### Connection Verification Module
 
@@ -271,7 +267,7 @@ Process flow:
 
 Update mechanism:
 
-The application update mechanism relies on the Squirrel.Windows framework on Windows and manual distribution on macOS and Linux. The Squirrel framework maintains multiple versions of the application side by side and switches between them on application start. This allows the update process to be reliable and to automatically roll back to the previous version if the new version fails to launch.
+Application updating uses Squirrel.Windows on installed Windows clients, a separate staged ZIP replacement on macOS, and release-page notifications on Linux. See the Auto-Update module for recovery boundaries and required assets.
 
 Extension update flow:
 
@@ -282,6 +278,11 @@ File structure:
 | Path | Contents |
 |------|----------|
 | src/main.ts | Main process entry point |
+| src/clientUpdates.ts | Update scheduling and dialogs |
+| src/releasePolicy.ts | Stable release/asset validation |
+| src/macUpdates.ts | Verified Mac download/preparation |
+| resources/mac-update.sh | Post-exit Mac replacement and rollback helper |
+| TESTING.md | Test commands and platform verification limits |
 | build/main.js | Compiled main process code |
 | resources/icons | Application icons for all platforms |
 | out | Build output directory for packaged applications |
@@ -295,7 +296,7 @@ Windows 10 and Windows 11 on x64 architecture are fully supported. The applicati
 
 macOS:
 
-macOS on both x64 and ARM64 architectures is supported. The application is distributed as a DMG file generated by the maker-dmg target. Because the application is not signed with an Apple Developer certificate, users must clear the quarantine attribute using the xattr command before mounting the DMG. Auto-update is not available on macOS in this build.
+Electron 44 requires macOS 13 Ventura or newer. Both Intel x64 and Apple Silicon ARM64 builds are produced. DMGs support initial/manual installation; architecture-specific ZIP/checksum pairs support subsequent automatic updates. The app remains unsigned; macOS security/initial-opening requirements still apply. See the Auto-Update module and TESTING.md before release.
 
 Linux:
 
@@ -394,7 +395,7 @@ The following tools must be installed on the build machine:
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Node.js | 22.x LTS | JavaScript runtime and package manager |
+| Node.js | 22.12.0 or newer | JavaScript runtime and package manager |
 | Git | Any recent version | Source code management |
 | npm | Bundled with Node.js | Package management |
 
@@ -405,8 +406,8 @@ Build steps:
 1. Clone the repository:
 
 ```
-git clone https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online
-cd Kaspersky-Inventions-for-Tanki-Online
+git clone https://github.com/AlanKaspersky/tanki-online-with-ki
+cd tanki-online-with-ki
 ```
 
 2. Install dependencies:
@@ -427,6 +428,8 @@ npm run build
 npm run make
 ```
 
+On Windows, use a checkout path containing Latin characters: the bundled Squirrel resource editor cannot process an output path containing Cyrillic characters. This limitation affects creating the installer, not launching the installed client.
+
 The output is placed in the out/make directory. The structure of this directory depends on the current platform. On Windows, the Squirrel installer and the NUPKG package are placed in out/make/squirrel.windows/x64. On macOS, the DMG file is placed in out/make. On Linux, the DEB package is placed in out/make/deb.
 
 Platform-specific build commands:
@@ -443,7 +446,7 @@ The repository can be configured to build on GitHub Actions. A typical workflow 
 
 Node.js version compatibility:
 
-The build process requires Node.js 22 LTS. Newer versions such as Node.js 24 or 26 are not compatible with the yauzl library used by Electron Forge in version 7.6.0. Using an incompatible Node.js version may result in a silent failure during the Finalizing package step of the build process.
+Electron 44 npm tooling requires Node.js 22.12.0 or newer. The dependency lockfile pins the runtime and ZIP libraries. Run type checking, tests and a local packaging check before release; do not infer compatibility from the Node.js major version alone.
 
 ## Troubleshooting
 

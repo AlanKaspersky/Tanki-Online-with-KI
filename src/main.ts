@@ -5,7 +5,6 @@ import { spawn } from "child_process";
 import parseArgs from "minimist";
 import { BrowserWindow, app as application, dialog, session, shell, ipcMain } from "electron";
 import log from "electron-log/main";
-import { updateElectronApp, UpdateSourceType } from "update-electron-app";
 import { createHash } from "crypto";
 import { XMLParser } from "fast-xml-parser";
 import { Downloader as FileDownloader } from "nodejs-file-downloader";
@@ -13,6 +12,7 @@ import extractZip from "extract-zip";
 import { Entry as ZipEntry } from "yauzl";
 
 import { DiscordPresence, validPresence, copyPresence } from "./discordPresence";
+import { startClientUpdates } from "./clientUpdates";
 
 const TANKI_ONLINE_URL = "https://tankionline.com/play/";
 
@@ -49,19 +49,6 @@ async function main() {
             }
         }).unref();
         application.quit(); return;
-    }
-
-    if (OS.platform() === "win32") {
-        updateElectronApp({
-            logger: log,
-            updateSource: {
-                type: UpdateSourceType.ElectronPublicUpdateService,
-                host: "https://update.electronjs.org",
-                repo: "AlanKaspersky/tanki-online-with-ki"
-            },
-            updateInterval: "1 hour",
-            notifyUser: false
-        });
     }
 
     application.commandLine.appendSwitch("disable-renderer-backgrounding");
@@ -139,7 +126,12 @@ function createMainWindow() {
         discord.update(copyPresence(value));
     };
     ipcMain.on("ki:discord-presence", receivePresence);
+    // Background renderer timers may be throttled; keep the last activity alive.
+    const resumePresence = () => { if (lastPresenceAt) lastPresenceAt = Date.now(); };
+    window.on("restore", resumePresence);
+    window.on("show", resumePresence);
     const presenceLease = setInterval(() => {
+        if (window.isMinimized() || !window.isVisible()) { resumePresence(); return; }
         if (lastPresenceAt && Date.now() - lastPresenceAt > 30000) {
             lastPresenceAt = 0;
             discord.update(null);
@@ -148,8 +140,14 @@ function createMainWindow() {
     window.webContents.on("did-start-navigation", (_event, _url, _inPlace, mainFrame) => {
         if (mainFrame) { lastPresenceAt = 0; discord.update(null); }
     });
+    window.webContents.on("render-process-gone", () => {
+        lastPresenceAt = 0;
+        discord.update(null);
+    });
     window.once("closed", () => {
         clearInterval(presenceLease);
+        window.removeListener("restore", resumePresence);
+        window.removeListener("show", resumePresence);
         ipcMain.removeListener("ki:discord-presence", receivePresence);
         discord.dispose();
     });
@@ -162,8 +160,10 @@ function createMainWindow() {
             }
             return { action: "allow" };
         });
-    window.once("ready-to-show", () =>
-        window.maximize());
+    window.once("ready-to-show", () => {
+        window.maximize();
+        startClientUpdates(window);
+    });
     window.loadURL(options.url ?? TANKI_ONLINE_URL);
 }
 
@@ -213,8 +213,7 @@ async function updateAndLoadExtensions(userDataPath: string) {
         }
         try {
             await updateExtension(extension);
-            await session.defaultSession
-                .loadExtension(extension.path);
+            await session.defaultSession.extensions.loadExtension(extension.path);
         } catch (error) {
             log.error(error);
         }

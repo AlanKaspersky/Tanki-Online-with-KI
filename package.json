@@ -1,6 +1,6 @@
 {
     "name": "tanki-online-with-ki",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "author": {
         "name": "AlanKaspersky"
     },
@@ -18,7 +18,8 @@
         "fast-xml-parser": "4.5.0",
         "minimist": "1.2.8",
         "nodejs-file-downloader": "4.13.0",
-        "update-electron-app": "3.1.0"
+        "update-electron-app": "3.1.0",
+        "yauzl": "^3.3.1"
     },
     "devDependencies": {
         "@electron-forge/cli": "7.6.0",
@@ -32,18 +33,22 @@
         "@tsconfig/node22": "22.0.0",
         "@types/minimist": "1.2.5",
         "@types/node": "22.10.2",
-        "electron": "33.2.1",
+        "electron": "44.8.0",
         "rimraf": "6.0.1",
         "ts-node": "10.9.2",
         "typescript": "5.7.2"
     },
     "scripts": {
+        "typecheck": "tsc --noEmit && tsc --noEmit --esModuleInterop --skipLibCheck --module commonjs --target es2022 forge.config.ts",
+        "check": "npm run typecheck && npm test",
+        "test": "node --test",
+        "smoke": "node scripts/run-electron-smoke.cjs",
         "clean": "rimraf ./build",
         "prebuild": "npm run clean",
         "build": "tsc",
         "prestart": "npm run build",
-        "premake": "npm run build",
-        "prepublish": "npm run build",
+        "premake": "npm run check && npm run build",
+        "prepublish": "npm run check && npm run build",
         "start": "electron-forge start",
         "make": "electron-forge make",
         "make-windows": "npm run make -- --platform=win32 --arch=x64,arm64",
