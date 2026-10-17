@@ -108,3 +108,11 @@ All 59 tests and type checks pass. Added coverage verifies unfocused non-minimiz
 ### Node 22 release-builder compatibility
 
 The initial release run exposed a native Node 22.23.3 cpSync crash (Windows exit code 3221226505) in the Unicode-path test. It was reproduced locally with the same official Node version. The maker now supplies an always-true copy filter to use Node's JavaScript traversal rather than its native directory-copy fast path; file selection remains unchanged. All 59 tests then pass on Node 22.23.3 as well as the previously checked Node 26.9.0. This change affects only the build script, which is excluded from packaged applications; the already verified Windows runtime and release assets remain identical.
+
+## Stable publication — 1.0.6 (2026-10-17)
+
+- [Release build](https://github.com/AlanKaspersky/Tanki-Online-with-KI/actions/runs/39033840418) completed successfully for Windows and macOS with all 59 tests passing. The original workflow was reused; no workflow was added or modified.
+- The release retains the exact locally verified Windows EXE/full NUPKG/RELEASES/icon. Uploaded SHA-256 digests and sizes match the local verification report, and the Windows job also completed its build successfully.
+- Both Mac architectures passed ad-hoc signature and architecture checks. The actual ARM64 packaged app passed its native offline startup probe with no translation, renderer isolation, JavaScript, WebGL/Metal and backgroundThrottling:false. The x64 package was signature/CPU checked, without claiming an Intel hardware startup test.
+- Both uploaded ZIP checksum files were downloaded and checked against their own asset digests and the matching ZIP asset digests before promoting the draft.
+- [1.0.6](https://github.com/AlanKaspersky/Tanki-Online-with-KI/releases/tag/1.0.6) is public and stable, with Windows installer/update files and both Mac DMG/ZIP/checksum sets. The local working copy is now `C:\Tanki Online with KI`. The retained older desktop copy was not removed.
