@@ -1,4 +1,6 @@
-# Update verification — client 1.0.4
+# Client release verification
+
+The 1.0.4 sections below record the original updater checks. The final section records stable release 1.0.5 verification.
 
 ## Local commands
 
@@ -46,3 +48,12 @@ The GitHub URL policy now accepts owner/repository casing returned by the live G
 ## macOS packaging correction — 1.0.5
 
 The 1.0.4 published arm64 ZIP contained the correct CPU architecture and intact download bytes, but no complete top-level app resource seal. The build now applies ad-hoc signing (no Developer ID certificate), preserves hardened runtime with JIT/library-loading entitlements, and fails if signing fails. Post-package verification requires CodeResources, codesign --verify --deep --strict, the expected version and lipo architecture. A matching-architecture runner launches the actual packaged executable with --ki-startup-check to test renderer isolation, JavaScript and report WebGL/GPU status without contacting the game. A cross-architecture build is signature/CPU checked but its runtime check is explicitly reported as not run. Local checks: 35 tests passed, no skips; the new startup probe also passed on real Windows Electron. Gatekeeper/notarization and actual game FPS on a downloaded Mac app still require user-device verification.
+
+## Stable release — 1.0.5 (2026-10-17)
+
+- The existing [release build](https://github.com/AlanKaspersky/Tanki-Online-with-KI/actions/runs/39008921837) completed successfully for Windows and macOS, including all 35 automated tests on each platform.
+- The actual packaged arm64 app passed the native offline startup probe on the macOS ARM64 runner: no Rosetta translation, renderer isolation and JavaScript passed, and WebGL used the Apple Metal backend. The x64 build passed signature and architecture checks; it was not launched on an Intel Mac by this build.
+- Published Mac ZIP checksums matched GitHub asset digests. The arm64 ZIP also passed an independent check of its main executable code pages, Info.plist signature slot and complete top-level resource seal.
+- The user confirmed that all reported problems were resolved on the previously affected Apple Silicon Mac. This is real-device confirmation for that Mac, not a performance benchmark or a claim of a particular FPS on every device.
+- Stable publication promotes the existing tested 1.0.5 assets without rebuilding or replacing them. Windows installer/update files and both Mac DMG/ZIP/checksum pairs are included.
+- Real Intel runtime behavior and the complete automatic replacement cycle on every supported Mac remain separate validation boundaries; ad-hoc signing does not provide Apple notarization.

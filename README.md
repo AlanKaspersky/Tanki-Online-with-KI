@@ -112,7 +112,7 @@ Application updates come from the public [client releases](https://github.com/Al
 
 **macOS without Developer ID:** builds use an ad-hoc signature to seal the completed application and nested components. This does not identify the developer to Apple or provide notarization. The packaging step fails on signature verification errors and verifies the final bundle architecture. It also launches the packaged executable offline on a matching runner architecture before producing installers.
 
-The updater a dedicated updater checks GitHub 15 seconds after the main window is ready, then hourly. It ignores drafts, prereleases, same/older versions and incompatible asset names. For Intel/Apple Silicon, the release must contain:
+The updater checks GitHub 15 seconds after the main window is ready, then hourly. It ignores drafts, prereleases, same/older versions and incompatible asset names. For Intel/Apple Silicon, the release must contain:
 
 - `to-<version>-darwin-x64.zip` and `to-<version>-darwin-x64.zip.sha256`;
 - `to-<version>-darwin-arm64.zip` and `to-<version>-darwin-arm64.zip.sha256`.
@@ -298,7 +298,7 @@ Windows 10 and Windows 11 on x64 architecture are fully supported. The applicati
 
 macOS:
 
-Electron 44 requires macOS 13 Ventura or newer. Both Intel x64 and Apple Silicon ARM64 builds are produced. DMGs support initial/manual installation; architecture-specific ZIP/checksum pairs support subsequent automatic updates. The app remains unsigned; macOS security/initial-opening requirements still apply. See the Auto-Update module and TESTING.md before release.
+Electron 44 requires macOS 13 Ventura or newer. Both Intel x64 and Apple Silicon ARM64 builds are produced. DMGs support initial/manual installation; architecture-specific ZIP/checksum pairs support subsequent automatic updates. The completed app is ad-hoc signed, without a Developer ID certificate or notarization; macOS security/initial-opening requirements still apply. See the Auto-Update module and TESTING.md for validation and update details.
 
 Linux:
 
@@ -312,13 +312,11 @@ Download the to-*.*.*-win32.exe installer from the latest release and run it. Sq
 
 macOS:
 
-Download the to-1.0.0-darwin-x64.dmg or to-1.0.0-darwin-arm64.dmg file depending on the architecture of your Mac. Before mounting the DMG, clear its quarantine attributes with the following command in Terminal:
+Download the matching installer from the [latest stable release](https://github.com/AlanKaspersky/Tanki-Online-with-KI/releases/latest): to-1.0.5-darwin-arm64.dmg for Apple M-series Macs, or to-1.0.5-darwin-x64.dmg for Intel Macs. Open the DMG and drag the app into Applications. Fully quit any existing client before replacing it.
 
-```
-xattr -c <path to dmg>
-```
+The application is ad-hoc signed but is not Developer ID signed or notarized. If macOS blocks the first launch, review its warning and use the application-specific approval in System Settings > Privacy & Security if available. The updater does not change macOS security settings.
 
-Then open the DMG and drag the application to the Applications folder. When launching the application for the first time, macOS may display a security warning. To proceed, right-click the application and select Open from the context menu.
+If version 1.0.4 cannot launch, replace it manually with the matching 1.0.5 build. Version 1.0.5 was verified on the previously affected Apple Silicon Mac; the user confirmed that the reported problems were resolved.
 
 Linux:
 
