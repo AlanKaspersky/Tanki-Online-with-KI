@@ -1,6 +1,6 @@
 # Tanki Online with KI Client
 
-Client version: **1.0.4**. Runtime: **Electron 44.8.0** (stable), Chromium 152. macOS minimum: **13 Ventura**.
+Client version: **1.0.5**. Runtime: **Electron 44.8.0** (stable), Chromium 152. macOS minimum: **13 Ventura**.
 
 ## Complete Documentation
 
@@ -110,7 +110,9 @@ Application updates come from the public [client releases](https://github.com/Al
 
 **Windows installed with Squirrel:** the existing Electron update service checks at startup and hourly, downloads the update and offers Update and restart / Later. A downloaded-update notice waits while the main window is hidden. Releases must contain `RELEASES`, `*-full.nupkg` and the installer EXE. If the native updater reports an error, a GitHub release-page offer provides a manual fallback. Portable Windows and Linux builds receive a release-page notification rather than an unsupported automatic installation.
 
-**macOS without Developer ID:** a dedicated updater checks GitHub 15 seconds after the main window is ready, then hourly. It ignores drafts, prereleases, same/older versions and incompatible asset names. For Intel/Apple Silicon, the release must contain:
+**macOS without Developer ID:** builds use an ad-hoc signature to seal the completed application and nested components. This does not identify the developer to Apple or provide notarization. The packaging step fails on signature verification errors and verifies the final bundle architecture. It also launches the packaged executable offline on a matching runner architecture before producing installers.
+
+The updater a dedicated updater checks GitHub 15 seconds after the main window is ready, then hourly. It ignores drafts, prereleases, same/older versions and incompatible asset names. For Intel/Apple Silicon, the release must contain:
 
 - `to-<version>-darwin-x64.zip` and `to-<version>-darwin-x64.zip.sha256`;
 - `to-<version>-darwin-arm64.zip` and `to-<version>-darwin-arm64.zip.sha256`.
@@ -121,7 +123,7 @@ After Download update, the client downloads in the background and checks size, S
 
 After explicit restart confirmation, a separate POSIX helper waits up to 120 seconds for the current process to exit. It retains the previous bundle, moves the prepared app into place and calls macOS Launch Services. Rename/open-command failure restores the old app. A later crash after a successful launch command is not automatically detected; the previous app remains available for manual recovery. Backups are kept under a hidden `.tanki-ki-update-*/previous.app` directory beside the installed app and can be removed manually after successful verification.
 
-The app must be installed outside a DMG/App Translocation and its installation directory must be writable by the current user. Otherwise preparation stops and offers manual installation from GitHub. The updater does not request administrator rights or remove macOS quarantine/security settings. It does not provide Developer ID signing/notarization. Clients older than 1.0.4 need one manual Mac upgrade before this mechanism is available.
+The app must be installed outside a DMG/App Translocation and its installation directory must be writable by the current user. Otherwise preparation stops and offers manual installation from GitHub. The updater does not request administrator rights or remove macOS quarantine/security settings. It does not provide Developer ID signing/notarization. Clients older than 1.0.4 need one manual Mac upgrade before this mechanism is available. If the 1.0.4 Mac bundle is blocked as damaged, manually replace it with 1.0.5; use arm64 on Apple M-series Macs and x64 on Intel Macs.
 
 See [TESTING.md](TESTING.md) for automated coverage and the remaining real-Mac verification boundary. The official native Electron autoUpdater requires signed Mac apps; the unsigned Mac path described here is a separate implementation.
 

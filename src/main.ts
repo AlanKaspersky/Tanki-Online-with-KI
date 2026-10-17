@@ -13,6 +13,7 @@ import { Entry as ZipEntry } from "yauzl";
 
 import { DiscordPresence, validPresence, copyPresence } from "./discordPresence";
 import { startClientUpdates } from "./clientUpdates";
+import { runStartupCheck } from "./startupCheck";
 
 const TANKI_ONLINE_URL = "https://tankionline.com/play/";
 
@@ -56,6 +57,7 @@ async function main() {
     application.commandLine.appendSwitch("ignore-gpu-blocklist");
     application.commandLine.appendSwitch("enable-gpu-rasterization");
     await application.whenReady();
+    if (options["ki-startup-check"]) { await runStartupCheck(); return; }
 
     if (!(await canConnect(options.url ?? TANKI_ONLINE_URL))) {
         dialog.showErrorBox("Error / Ошибка",

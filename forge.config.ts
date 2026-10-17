@@ -1,6 +1,7 @@
 import FS from "fs";
 import Path from "path";
 import { createHash } from "crypto";
+import { execFileSync } from "child_process";
 import type { ForgeConfig, ForgeMakeResult } from "@electron-forge/shared-types";
 
 const packageJSON = JSON.parse(FS.readFileSync("./package.json",
@@ -28,10 +29,31 @@ function includeResource(
     return makeResults;
 }
 
+// Packager honors continueOnError although its bundled osx-sign type omits that option.
+const macSigningOptions = {
+    identity: "-",
+    identityValidation: false,
+    preAutoEntitlements: false,
+    preEmbedProvisioningProfile: false,
+    continueOnError: false,
+    strictVerify: true,
+    optionsForFile: () => ({
+        hardenedRuntime: true,
+        timestamp: "none",
+        entitlements: [
+            "com.apple.security.cs.allow-jit",
+            "com.apple.security.cs.disable-library-validation",
+            "com.apple.security.device.audio-input"
+        ]
+    })
+};
+
 export default {
     packagerConfig: {
         executableName: packageJSON.name,
         asar: true,
+        // Ad-hoc signing seals the completed app without requiring Developer ID.
+        osxSign: process.platform === "darwin" ? macSigningOptions : undefined,
         icon: "./resources/icons/icon",
         appCategoryType: "public.app-category.action-games",
         ignore: [/^\/tests(?:\/|$)/, /^\/scripts(?:\/|$)/]
@@ -69,6 +91,16 @@ export default {
         }
     ],
     hooks: {
+        postPackage: async (_config, result) => {
+            if (result.platform !== "darwin") return;
+            for (const output of result.outputPaths) {
+                execFileSync(process.execPath, [
+                    Path.resolve("scripts/verify-mac-app.cjs"),
+                    Path.join(output, packageJSON.productName + ".app"),
+                    result.arch, packageJSON.version
+                ], { stdio: "inherit", timeout: 90000 });
+            }
+        },
         postMake: async (_config: ForgeConfig, makeResults: ForgeMakeResult[]) => {
             includeResource(makeResults, "win32",
                 "./resources/icons/icon.ico",

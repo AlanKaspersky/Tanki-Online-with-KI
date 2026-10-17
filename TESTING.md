@@ -42,3 +42,7 @@ The updater does not remove quarantine attributes, invoke `sudo`, disable Gateke
 ## Publication preparation
 
 The GitHub URL policy now accepts owner/repository casing returned by the live GitHub API while keeping tag and asset paths exact. A regression test covers canonical/lowercase URLs and rejects foreign repositories, credentials, URL suffixes and differently cased asset names. Shell files are pinned to LF in .gitattributes so Windows checkout does not invalidate the Mac helper. Local check: 33 tests pass, 0 fail, 0 skip.
+
+## macOS packaging correction — 1.0.5
+
+The 1.0.4 published arm64 ZIP contained the correct CPU architecture and intact download bytes, but no complete top-level app resource seal. The build now applies ad-hoc signing (no Developer ID certificate), preserves hardened runtime with JIT/library-loading entitlements, and fails if signing fails. Post-package verification requires CodeResources, codesign --verify --deep --strict, the expected version and lipo architecture. A matching-architecture runner launches the actual packaged executable with --ki-startup-check to test renderer isolation, JavaScript and report WebGL/GPU status without contacting the game. A cross-architecture build is signature/CPU checked but its runtime check is explicitly reported as not run. Local checks: 35 tests passed, no skips; the new startup probe also passed on real Windows Electron. Gatekeeper/notarization and actual game FPS on a downloaded Mac app still require user-device verification.
