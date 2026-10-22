@@ -172,6 +172,34 @@ function createMainWindow() {
     window.loadURL(options.url ?? TANKI_ONLINE_URL);
 }
 
+function selectExtensions(
+    extensions: Array<{ path: string; manifest: any }>,
+    extensionsPath: string,
+    key: string,
+    occupiedPaths: string[]
+) {
+    const isKI = (extension: { manifest: any }) => extension.manifest.key === key ||
+        extension.manifest.name === "Tanki Online: Kaspersky's Inventions";
+    const pathKey = (value: string) => Path.resolve(value).toLowerCase();
+    const canonical = Path.join(extensionsPath, "kaspersky-inventions");
+    const storeCopies = extensions.filter(extension => extension.manifest.key === key);
+    let preferredKI = storeCopies.find(extension => pathKey(extension.path) === pathKey(canonical)) || storeCopies[0];
+    if (!preferredKI) {
+        // Never overwrite an unpacked copy or an unrelated/invalid directory.
+        const occupied = new Set([...occupiedPaths, ...extensions.map(extension => extension.path)].map(pathKey));
+        let target = canonical, suffix = 1;
+        while (occupied.has(pathKey(target))) {
+            target = Path.join(extensionsPath, "kaspersky-inventions-store" + (suffix === 1 ? "" : "-" + suffix));
+            suffix++;
+        }
+        preferredKI = { path: target, manifest: { key } };
+    }
+    const skipped = extensions.filter(extension => isKI(extension) && extension !== preferredKI);
+    const selected = extensions.filter(extension => !isKI(extension) || extension === preferredKI);
+    if (!selected.includes(preferredKI)) selected.push(preferredKI);
+    return { selected, skipped, preferredKI };
+}
+
 async function updateAndLoadExtensions(userDataPath: string) {
 
     const extensionsPath = Path.join(userDataPath, "extensions");
@@ -180,7 +208,7 @@ async function updateAndLoadExtensions(userDataPath: string) {
     const extensions = new Array<{ path: string; manifest: any }>();
     const directoryPaths =
         FS.readdirSync(extensionsPath, { withFileTypes: true })
-            .filter((dirent) => dirent.isDirectory())
+            .filter((dirent) => dirent.isDirectory() && !dirent.name.startsWith(".ki-extension-update-"))
             .map((dirent) => Path.join(extensionsPath, dirent.name));
             
     for (const directoryPath of directoryPaths) {
@@ -195,29 +223,21 @@ async function updateAndLoadExtensions(userDataPath: string) {
         }
     }
 
-    const isKI = (extension: { manifest: any }) =>
-        extension.manifest.key === KASPERSKY_EXTENSION_KEY ||
-        extension.manifest.name === "Tanki Online: Kaspersky's Inventions";
-    const kiCandidates = extensions.filter(isKI);
-    // A manually installed development copy takes precedence over the store copy.
-    const preferredKI = kiCandidates.find(extension => !extension.manifest.key) || kiCandidates[0];
-    if (!preferredKI) {
-        const kiExtension = {
-            path: Path.join(extensionsPath, "kaspersky-inventions"),
-            manifest: {
-                key: KASPERSKY_EXTENSION_KEY
-            }
-        };
-        extensions.push(kiExtension);
+    const { selected, skipped, preferredKI } = selectExtensions(
+        extensions, extensionsPath, KASPERSKY_EXTENSION_KEY, directoryPaths);
+    log.info(`[KI] Using Chrome Web Store extension: ${preferredKI.path}`);
+    for (const duplicate of skipped) {
+        log.info(`[KI] Skipping local/duplicate extension: ${duplicate.path}; using ${preferredKI.path}`);
     }
 
-    for (const extension of extensions) {
-        if (preferredKI && isKI(extension) && extension !== preferredKI) {
-            log.info(`[KI] Skipping duplicate extension: ${extension.path}; using ${preferredKI.path}`);
-            continue;
-        }
+    for (const extension of selected) {
         try {
             await updateExtension(extension);
+        } catch (error) {
+            // A failed update check must not prevent loading an installed store copy.
+            log.error(error);
+        }
+        try {
             await session.defaultSession.extensions.loadExtension(extension.path);
         } catch (error) {
             log.error(error);
@@ -238,6 +258,9 @@ async function updateExtension(extension: { path: string; manifest: any }) {
         extensionID + ".crx");
     const zipPath = Path.join(application.getPath("temp"),
         extensionID + ".zip");
+    const stagingPath = FS.mkdtempSync(Path.join(Path.dirname(extension.path), ".ki-extension-update-"));
+    const previousPath = stagingPath + "-previous";
+    let installed = false;
     try {
         await new FileDownloader({
             url: latestVersion.crx,
@@ -246,12 +269,35 @@ async function updateExtension(extension: { path: string; manifest: any }) {
             cloneFiles: false
         }).download();
         FS.writeFileSync(zipPath, unwrapCRX(FS.readFileSync(crxPath)));
-        FS.rmSync(extension.path, { recursive: true, force: true });
         await extractZip(zipPath, {
-            dir: extension.path,
+            dir: stagingPath,
             onEntry: fixZipEntryPermissions
         });
+        // A packed store CRX can omit `key` from manifest.json. Retain the
+        // registered identity so the next launch can update this unpacked copy.
+        const installedManifestPath = Path.join(stagingPath, "manifest.json");
+        const installedManifest = JSON.parse(FS.readFileSync(installedManifestPath, "utf8"));
+        if (installedManifest.version !== latestVersion.version ||
+            installedManifest.key != null && installedManifest.key !== manifest.key) {
+            throw new Error("Downloaded extension identity/version mismatch");
+        }
+        installedManifest.key = manifest.key;
+        if (!installedManifest.update_url && manifest.update_url) installedManifest.update_url = manifest.update_url;
+        FS.writeFileSync(installedManifestPath, JSON.stringify(installedManifest, null, 2) + "\n");
+        const hadPrevious = FS.existsSync(extension.path);
+        if (hadPrevious) FS.renameSync(extension.path, previousPath);
+        try {
+            FS.renameSync(stagingPath, extension.path);
+        } catch (error) {
+            // If restoring fails, the previous directory stays available for recovery.
+            if (hadPrevious) FS.renameSync(previousPath, extension.path);
+            throw error;
+        }
+        installed = true;
+        extension.manifest = installedManifest;
     } finally {
+        FS.rmSync(stagingPath, { recursive: true, force: true });
+        if (installed) FS.rmSync(previousPath, { recursive: true, force: true });
         FS.rmSync(crxPath, { force: true });
         FS.rmSync(zipPath, { force: true });
     }

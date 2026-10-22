@@ -116,3 +116,17 @@ The initial release run exposed a native Node 22.23.3 cpSync crash (Windows exit
 - Both Mac architectures passed ad-hoc signature and architecture checks. The actual ARM64 packaged app passed its native offline startup probe with no translation, renderer isolation, JavaScript, WebGL/Metal and backgroundThrottling:false. The x64 package was signature/CPU checked, without claiming an Intel hardware startup test.
 - Both uploaded ZIP checksum files were downloaded and checked against their own asset digests and the matching ZIP asset digests before promoting the draft.
 - [1.0.6](https://github.com/AlanKaspersky/Tanki-Online-with-KI/releases/tag/1.0.6) is public and stable, with Windows installer/update files and both Mac DMG/ZIP/checksum sets. The local working copy is now `C:\Tanki Online with KI`. The retained older desktop copy was not removed.
+
+
+## KI store selection regression — 2026-10-22
+
+The extension-startup suite executes the real selection, loading and update functions without launching the application. It covers store/local discovery order, an artificially higher local version, keyless canonical KI, fresh profiles, unrelated extensions, duplicate official copies, path collisions/invalid manifests, failed update checks, key persistence for a keyless packed CRX, manifest mismatch and restoration after a failed install rename. No test contacts the real store or modifies a user profile.
+
+A read-only production update request on this date returned KI 2.9.9 for eemohhfjcdlhmdpflloipmdeeggmofio; the inspected Windows profile held 2.9.8 without manifest.key. This confirms the reported skipped-update condition, not installation of the new package. Manual live verification still requires running the rebuilt client and confirming its selected path/version in the log.
+
+Local verification: npm run check passed all 68 tests and both TypeScript checks; npm run build and the compiled main.js syntax check passed. The offline Electron 44.8.0 smoke passed with an isolated temporary profile. That smoke did not load the optional KI extension; extension selection, download metadata/key retention and replacement failures were tested through the actual startup functions with controlled dependencies. No installed profile, installer or published release was changed.
+
+## Release candidate 1.0.7 — 2026-10-22
+
+Package and lockfile versions are 1.0.7. Both TypeScript checks and all 68 tests pass; the rebuilt Electron 44.8.0 offline smoke passes with renderer isolation, preload/native attention IPC and background rendering. The smoke did not load the optional KI extension. Extension update selection, key retention, staging validation and rollback are covered by the actual startup-function regression tests. No installed user profile is modified by these checks.
+

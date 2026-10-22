@@ -1,6 +1,6 @@
 # Tanki Online with KI Client
 
-Client version: **1.0.6**. Runtime: **Electron 44.8.0** (stable), Chromium 152. macOS minimum: **13 Ventura**.
+Client version: **1.0.7**. Runtime: **Electron 44.8.0** (stable), Chromium 152. macOS minimum: **13 Ventura**.
 
 ## Complete Documentation
 
@@ -176,8 +176,9 @@ Extension source resolution:
 
 | Extension source | Detection method | Update method |
 |------------------|------------------|---------------|
-| Unpacked extension | Directory in userData/extensions with a manifest.json file | Uses the update_url field from the manifest |
-| Built-in extension | Registered by public key in the KASPERSKY_EXTENSION_KEY constant | Uses the default Chrome Web Store update service |
+| Managed KI | Matches KASPERSKY_EXTENSION_KEY; canonical store directory wins among duplicates | Chrome Web Store update service, with retained public key after extraction |
+| Other keyed extension | Manifest contains a public key | Configured update_url or the default Chrome Web Store endpoint |
+| Other unpacked extension | Manifest has no public key | Loaded as-is; update_url alone cannot supply the extension ID |
 
 The module performs the following steps during application startup.
 
@@ -185,9 +186,9 @@ First, it ensures that the extensions directory exists inside the user data path
 
 Second, it scans the extensions directory for subdirectories containing a manifest.json file. Each valid extension is added to the processing list.
 
-Third, it checks whether the built-in extension identified by the KASPERSKY_EXTENSION_KEY is already present in the list. If not, it is added with a generated path inside the extensions directory.
+Third, selectExtensions chooses KI by its registered public key. A keyless copy with the KI name is skipped, regardless of its version. If no managed copy exists, the client reserves a free managed directory and downloads the official copy there. Existing local, invalid and unrelated directories are never selected as that new download target.
 
-Fourth, for each extension in the list, the module calls updateExtension to update it to the latest version, and then loads the updated extension into the default Electron session.
+Fourth, each selected extension is checked for updates and loaded. An update-check failure is logged separately and still permits loading an installed copy; failure to load one extension does not stop the others. KI duplicate paths are logged and skipped.
 
 The update process for a single extension depends on its manifest contents.
 
@@ -195,7 +196,7 @@ For extensions with a key field, the module computes the extension ID from the p
 
 The module then queries the extension update service for the latest version. If no explicit update_url is provided in the manifest, the module uses the default Chrome Web Store update endpoint. The service responds with an XML document containing the latest version number and the download URL for the CRX file.
 
-If the latest version differs from the currently installed version, the module downloads the CRX file to the temporary directory, unwraps it to extract the underlying ZIP archive, removes the existing extension directory, and extracts the new content into its place.
+If the reported store version differs, the module downloads and unwraps the CRX, extracts to a separate sibling staging directory, validates the manifest version/public key and retains the registered key even when the packed manifest omitted it. Only then does it replace the installed directory. A failed final rename restores the previous directory; if restoration itself fails, the previous directory is retained for recovery. Owned staging/temp archives are cleaned.
 
 Technical Implementation:
 
@@ -328,7 +329,7 @@ Download the to-*.*.*-win32.exe installer from the latest release and run it. Sq
 
 macOS:
 
-Download the matching installer from the [latest stable release](https://github.com/AlanKaspersky/Tanki-Online-with-KI/releases/latest): to-1.0.5-darwin-arm64.dmg for Apple M-series Macs, or to-1.0.5-darwin-x64.dmg for Intel Macs. Open the DMG and drag the app into Applications. Fully quit any existing client before replacing it.
+Download the matching installer from the [latest stable release](https://github.com/AlanKaspersky/Tanki-Online-with-KI/releases/latest): to-1.0.7-darwin-arm64.dmg for Apple M-series Macs, or to-1.0.7-darwin-x64.dmg for Intel Macs. Open the DMG and drag the app into Applications. Fully quit any existing client before replacing it.
 
 The application is ad-hoc signed but is not Developer ID signed or notarized. If macOS blocks the first launch, review its warning and use the application-specific approval in System Settings > Privacy & Security if available. The updater does not change macOS security settings.
 
@@ -367,22 +368,22 @@ The client supports loading custom unpacked extensions. To add an extension, pla
 Windows:
 
 ```
-C:\Users\<username>\AppData\Roaming\tanki_online_with_ki\extensions
+C:\Users\<username>\AppData\Roaming\Tanki Online with KI\extensions
 ```
 
 macOS:
 
 ```
-/Users/<username>/Library/Application Support/tanki_online_with_ki/extensions
+/Users/<username>/Library/Application Support/Tanki Online with KI/extensions
 ```
 
 Linux:
 
 ```
-/home/<username>/.config/tanki_online_with_ki/extensions
+/home/<username>/.config/Tanki Online with KI/extensions
 ```
 
-Extensions with a key field in their manifest will be updated automatically through the Chrome Web Store. Extensions with an update_url field will be updated through the configured update service. Extensions without either field will be loaded as-is without updates.
+Extensions with a key are checked through update_url when present, otherwise the default store endpoint. A keyless extension does not become updateable merely by declaring update_url. KI is managed specially: local/keyless KI copies have no priority and are skipped in favor of a keyed store copy, or a new store download. Other keyless extensions still load normally.
 
 Registry entries on Windows:
 
@@ -468,7 +469,7 @@ Electron 44 npm tooling requires Node.js 22.12.0 or newer. The dependency lockfi
 
 Application does not start on Windows:
 
-If the application fails to start and the process appears to exit immediately, the GPU respawn mechanism may be failing. This can be caused by antivirus software blocking the spawn call or by an invalid process path. To diagnose, run the application from the command line and check the log file located at %APPDATA%\tanki_online_with_ki\logs\main.log for errors.
+If the application fails to start and the process appears to exit immediately, the GPU respawn mechanism may be failing. This can be caused by antivirus software blocking the spawn call or by an invalid process path. To diagnose, run the application from the command line and check the log file located at %APPDATA%\Tanki Online with KI\logs\main.log for errors.
 
 Update check fails with AssertionError:
 
@@ -512,3 +513,9 @@ The application uses the following open source libraries:
 | yauzl | ZIP archive reading |
 
 Documentation Version 1.0
+
+## KI extension update selection — October 22, 2026
+
+The managed store copy always wins over a same-name keyless KI copy. The canonical path is extensions/kaspersky-inventions. If occupied by a local copy, a separate free kaspersky-inventions-store (or numbered suffix) is used; existing local files are preserved but not loaded as KI. A downloaded CRX can omit manifest.key, so the registered key is written to the extracted manifest for the next startup. Version checks still contact the extension update service independently of the client executable updater.
+
+The update is prepared before replacement; failed checks/downloads/validation leave the installed directory intact. Private .ki-extension-update-* staging/backup directories are not loaded as extensions. A previous directory retained after a failed restore must be recovered manually; it is not silently deleted at startup. Tests use controlled files/network doubles and do not change an installed profile. Rebuilding source does not modify a running installed executable or publish a client update.
