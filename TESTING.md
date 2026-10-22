@@ -130,3 +130,11 @@ Local verification: npm run check passed all 68 tests and both TypeScript checks
 
 Package and lockfile versions are 1.0.7. Both TypeScript checks and all 68 tests pass; the rebuilt Electron 44.8.0 offline smoke passes with renderer isolation, preload/native attention IPC and background rendering. The smoke did not load the optional KI extension. Extension update selection, key retention, staging validation and rollback are covered by the actual startup-function regression tests. No installed user profile is modified by these checks.
 
+
+## Stable publication — 1.0.7 (2026-10-22)
+
+- Release workflow https://github.com/AlanKaspersky/Tanki-Online-with-KI/actions/runs/39762034868 completed successfully for Windows x64 and both macOS architectures.
+- The local Windows installer and application report version 1.0.7. All ten compiled runtime files in app.asar match the checked sources. RELEASES SHA-1/size and the full NUPKG payload were verified. The actual packaged application passed its offline startup probe with a separate temporary profile, renderer isolation, JavaScript, WebGL and backgroundThrottling:false.
+- The uploaded Windows NUPKG and RELEASES were downloaded from the draft, checked against GitHub SHA-256 digests and Squirrel SHA-1/size, and their bundled runtime files matched the same compiled sources. Both uploaded Mac checksum files match their matching ZIP asset digests.
+- The complete ten-asset release was promoted from draft to public stable/latest only after verification. No installer was executed on the installed user profile. Live game/extension migration still requires launching the updated client.
+- Published release: https://github.com/AlanKaspersky/Tanki-Online-with-KI/releases/tag/1.0.7
